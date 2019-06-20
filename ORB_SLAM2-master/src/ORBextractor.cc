@@ -1,56 +1,49 @@
 /**
-* This file is part of ORB-SLAM2.
-* This file is based on the file orb.cpp from the OpenCV library (see BSD license below).
-*
-* Copyright (C) 2014-2016 Ra煤l Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
-* For more information see <https://github.com/raulmur/ORB_SLAM2>
-*
-* ORB-SLAM2 is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* ORB-SLAM2 is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
-*/
-/**
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2009, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*
+1. 理论知识
+? ? 特征点由关键点（Key-point）和描述子（Descriptor）两部分组成。ORB特征点（Oriented FAST and Rotated BRIEF）
+是由Oriented FAST角点和 BRIEF （Binary Robust Independent Elementary Features）描述子构成，其计算速度是sift特征点的100倍，
+是surf特征点的10倍。
+
+a.Fast 角点提取
+FAST 是一种角点，主要检测局部像素灰度变化明显的地方，以速度快著称。它的思 想是：如果一个像素与它邻域的像素差别较大（过亮或过暗）, 
+那它更可能是角点。相比于 其他角点检测算法，FAST 只需比较像素亮度的大小，十分快捷。
+
+提取步骤：
+
+1. 在图像中选取像素 p，假设它的亮度为 Ip。
+
+2. 设置一个阈值 T(比如 Ip 的 20%)。
+
+3. 以像素 p 为中心, 选取半径为 3 的圆上的 16 个像素点。
+
+4. 假如选取的圆上，有连续的 N 个点的亮度大于 Ip + T 或小于 Ip ?T，那么像素 p 可以被认为是特征点 (N 通常取 12，即为 FAST-12。
+其它常用的 N 取值为 9 和 11， 他们分别被称为 FAST-9，FAST-11)。
+
+5. 循环以上四步，对每一个像素执行相同的操作。
+
+为了提高效率，可以采用额外的加速办法。具体操作为，对于每个像素，直接检测邻域圆上的第 1，5，9，13 个像素的亮度。至少有3个和候选点的
+灰度值同时大于 Ip + T 或小于 Ip ?T 时，当前像素才有可能是一个角点，否则应该直接排除。为了提高比较的效率，通常只使用N个周边像素来比较，
+也就是大家经常说的FAST-N，其中Fast-9，Fast-12使用最多。
+
+高斯金字塔构建：
+
+?对图像做不同尺度的高斯模糊
+为了让尺度体现其连续性，高斯金字塔在简单降采样的基础上加上了高斯滤波。将图像金字塔每层的一张图像使用不同参数做高斯模糊，使得金字塔的每层含
+有多张高斯模糊图像，将金字塔每层多张图像合称为一组(Octave)，金字塔每层只有一组图像，组数和金字塔层数相等，使用下列公式计算，每组含有多张
+(也叫层Interval)图像。另外，降采样时，高斯金字塔上一组图像的初始图像(底层图像)是由前一组图像的倒数第三张图像隔点采样得到的。
+
+
+其中M，N为原图像的大小,t为塔顶图像的最小维数的对数值。如，对于大小为512*512的图像，金字塔上各层图像的大小如表3.1所示，当塔顶图像为4*4时，
+n=7，当塔顶图像为2*2时，n=8。
+
+对图像做降采样(隔点采样)
+?
+总结：
+
+设置一个比例因子scaleFactor（opencv默认为1.2）和金字塔的层数nlevels（pencv默认为8）。将原图像按比例因子缩小成nlevels幅图像。缩放后的
+图像为：I’= I/scaleFactork(k=1,2,…, nlevels)。nlevels幅不同比例的图像提取特征点总和作为这幅图像的oFAST特征点。
+
+
 */
 
 
